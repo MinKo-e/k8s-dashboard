@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}
+    service
+{% endblock %}
+{% block nav-item-3 %}layui-nav-itemed{% endblock %}
+{% block nav-this-3-1 %}layui-this{% endblock %}
+{% block extend %}
+                <span class="layui-breadcrumb">
+  <a href="/">首页</a>
+  <a href="#">负载均衡</a>
+  <a><cite>Service</cite></a>
+</span>
+    <hr>
+   <div class="layui-card">
+    <div class="layui-card-body">
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <button class="layui-btn" style="float: left">创建</button>
+                <input type="text" name="name" class="layui-input" style="width: 150px;float: left;margin-left: 20px">
+                <button class="layui-btn" style="float: left" id="searchbar">搜索</button>
+            </div>
+            <div class="layui-col-md12">
+                <table class="layui-hide" id="test" lay-filter="test"></table>
+                <script type="text/html" id="barDemo">
+                  <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="yaml">YAML</a>
+                  <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+                </script>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+{% block js %}
+
+    <script>
+    var storage = window.sessionStorage;
+    var namespace = storage.getItem("namespace");
+    layui.use(['table'], function(){
+        var table = layui.table;
+        var $ = layui.jquery
+
+
+  // 创建渲染实例
+   table.render({
+    elem: '#test'
+    ,url:`{% url 'svc_api' %}?namespace=${namespace}`
+    ,toolbar: '#toolbarDemo' //开启头部工具栏，并为其绑定左侧模板
+    ,defaultToolbar: ['filter', 'exports', 'print', { //自定义头部工具栏右侧图标。如无需自定义，去除该参数即可
+      title: '提示'
+      ,layEvent: 'LAYTABLE_TIPS'
+      ,icon: 'layui-icon-tips'
+    }]
+    ,title: '用户数据表'
+    ,cols: [[
+ {field: 'name', title: '名称', sort: true},
+        {field: 'name', title: '名称', sort: true, width: 100}
+        ,{field: 'namespace', title: '命名空间',width: 100, sort: true}
+        ,{field: 'type', title: '类型',width: 120, sort: true}
+        ,{field: 'cluster_ip', title: '集群IP',width: 150}
+        ,{field: 'ports', title: '端口信息',templet: portsFormat}
+        ,{field: 'labels', title: '标签', templet: labelsFormat}
+        ,{field: 'selector', title: 'Pod 标签选择器', templet: selectorFormat}
+        ,{field: 'endpoint', title: '后端 Pod'}
+        ,{field: 'create_time', title: '创建时间',width: 200}
+        ,{fixed: 'right', title:'操作', toolbar: '#barDemo',width: 150}
+    ]]
+    ,page: true
+    ,id: 'svctb'
+  });
+
+function labelsFormat(d){
+        result = "";
+        if(d.labels == null){
+            return "None"
+        } else {
+            for (let key in d.labels) {
+                result += '<span style="border: 1px solid #d6e5ec;border-radius: 8px">' +
+                    key + ':' + d.labels[key] +
+                    '</span><br>'
+            }
+            return result
+        }
+    }
+    function selectorFormat(d){
+        result = "";
+        for(let key in d.selector) {
+           result += '<span style="border: 1px solid #d6e5ec;border-radius: 8px">' +
+                key + ':' + d.selector[key] +
+                   '</span><br>'
+        }
+        return result
+    }
+    function portsFormat(d) {
+        result = "";
+        for(let key in d.ports) {
+            data = d.ports[key];
+            result += `<div style="border:1px solid #d6e5ec;border-radius: 8px">名称: ${data.port_name} <br>端口: ${data.port}<br>协议: ${data.protocol}<br>容器端口: ${data.target_port}<br></div>`
+        }
+        return result
+    }
+
+
+
+  //触发单元格工具事件
+  table.on('tool(test)', function(obj){ // 双击 toolDouble
+    var data = obj.data;
+
+    if(obj.event === 'del'){
+      layer.confirm(`真的删除${data.name}这个service吗`, function(index){
+            csrf_token = $('[name="csrfmiddlewaretoken"]').val();
+            data['namespace'] = namespace
+            $.ajax({
+            type: "DELETE",
+                url: `{% url 'svc_api' %}?namespace=${namespace}`,
+            data:data,
+            headers: {"X-CSRFToken": csrf_token},
+            success: function (res) {
+                if (res.code == 0) {
+                    layer.msg(res.msg, {icon: 6});
+                    obj.del()
+                } else {
+                    layer.msg(res.msg, {icon: 5})
+                }
+            },
+            error: function () {
+                layer.msg("服务器接口异常",{icon: 5})
+            }
+        })
+      });
+    } else if(obj.event === 'edit'){
+      layer.open({
+        title: '编辑',
+        type: 1,
+        area: ['80%','80%'],
+        content: '<div style="padding: 16px;">自定义表单元素</div>'
+      });
+    }
+  });
+
+
+  $(document).on('click','#searchbar',(function () {
+    var search = $("input[name='name']").val();
+    table.reload('svctb', {
+        type: 'GET',
+        url: `{% url 'svc_api' %}?namespace=${namespace}`,
+        where: { //设定异步数据接口的额外参数，任意设
+            searchKey: search
+        }
+        , page: {
+            curr: 1 //重新从第 1 页开始
+        }
+    });
+      }));
+
+});
+</script>
+
+{% endblock %}
+
+

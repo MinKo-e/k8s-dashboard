@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}
+    deplotment
+{% endblock %}
+{% block nav-item-2 %}layui-nav-itemed{% endblock %}
+{% block nav-this-2-1 %}layui-this{% endblock %}
+{% block extend %}
+            <span class="layui-breadcrumb">
+  <a href="/">首页</a>
+  <a href="#">工作负载</a>
+  <a><cite>Deployment</cite></a>
+</span>
+    <hr>
+   <div class="layui-card">
+    <div class="layui-card-body">
+
+        <div class="layui-row">
+            <div class="layui-col-md12">
+                <button class="layui-btn" style="float: left">创建</button>
+                <input type="text" name="name" class="layui-input" style="width: 150px;float: left;margin-left: 20px">
+                <button class="layui-btn" style="float: left" id="searchbar">搜索</button>
+            </div>
+            <div class="layui-col-md12">
+                <table class="layui-hide" id="test" lay-filter="test"></table>
+                <script type="text/html" id="barDemo">
+                  <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="yaml">YAML</a>
+                  <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+                </script>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+{% block js %}
+
+    <script>
+    var storage = window.sessionStorage;
+    var namespace = storage.getItem("namespace");
+layui.use(['table'], function(){
+  var table = layui.table;
+  var $ = layui.jquery
+
+
+  // 创建渲染实例
+   table.render({
+    elem: '#test'
+    ,url:`{% url 'deploy_api' %}?namespace=${namespace}`
+    ,toolbar: '#toolbarDemo' //开启头部工具栏，并为其绑定左侧模板
+    ,defaultToolbar: ['filter', 'exports', 'print', { //自定义头部工具栏右侧图标。如无需自定义，去除该参数即可
+      title: '提示'
+      ,layEvent: 'LAYTABLE_TIPS'
+      ,icon: 'layui-icon-tips'
+    }]
+    ,title: '用户数据表'
+    ,cols: [[
+       {field: 'name', title: '名称', sort: true}
+          ,{field: 'namespace', title: '命名空间'}
+          ,{field: 'replicas', title: '预期副本数'}
+          ,{field: 'available_replicas', title: '可用副本数'}
+          ,{field: 'labels', title: '标签',templet: labelsFormat}
+          ,{field: 'selector', title: 'Pod标签选择器',templet: labelsFormat}
+          ,{field: 'images', title: '镜像/状态'}
+          ,{field: 'create_time', title: '创建时间'}
+          ,{fixed: 'right', title:'操作', toolbar: '#barDemo', width:150}
+    ]]
+    ,page: true
+    ,id: 'dptb'
+  });
+
+
+  function  labelsFormat(d) {
+        var res = ''
+      if (d.labels == null) {
+          return 'None'
+
+      } else {
+            for (let i in d.labels) {
+                res += `<span style="border:1px solid #d6e5ec;border-radius: 8px">${i}:${d.labels[i]}</span><br>`
+            }
+            return  res
+      }
+  }
+
+  //触发单元格工具事件
+  table.on('tool(test)', function(obj){ // 双击 toolDouble
+    var data = obj.data;
+
+    if(obj.event === 'del'){
+      layer.confirm(`真的删除${data.name}这个deployment吗`, function(index){
+            csrf_token = $('[name="csrfmiddlewaretoken"]').val();
+            data['namespace'] = namespace
+            $.ajax({
+            type: "DELETE",
+                url: `{% url 'deploy_api' %}?namespace=${namespace}`,
+            data:data,
+            headers: {"X-CSRFToken": csrf_token},
+            success: function (res) {
+                if (res.code == 0) {
+                    layer.msg(res.msg, {icon: 6});
+                    obj.del()
+                } else {
+                    layer.msg(res.msg, {icon: 5})
+                }
+            },
+            error: function () {
+                layer.msg("服务器接口异常",{icon: 5})
+            }
+        })
+      });
+    } else if(obj.event === 'edit'){
+      layer.open({
+        title: '编辑',
+        type: 1,
+        area: ['80%','80%'],
+        content: '<div style="padding: 16px;">自定义表单元素</div>'
+      });
+    }
+  });
+
+
+  $(document).on('click','#searchbar',(function () {
+    var search = $("input[name='name']").val();
+    table.reload('dptb', {
+        type: 'GET',
+        url: `{% url 'deploy_api' %}?namespace=${namespace}`,
+        where: { //设定异步数据接口的额外参数，任意设
+            searchKey: search
+        }
+        , page: {
+            curr: 1 //重新从第 1 页开始
+        }
+    });
+      }));
+
+});
+</script>
+
+{% endblock %}
+
+
